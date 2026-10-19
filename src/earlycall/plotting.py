@@ -1,0 +1,85 @@
+"""Matplotlib figures used by the scripts and the app.
+
+Every function returns the Figure, so the same code works in a notebook, in a script
+(fig.savefig) and in Streamlit (st.pyplot(fig)).
+"""
+from __future__ import annotations
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from earlycall.batch_data import BatchData
+
+
+def plot_trajectories(data: BatchData, param: str, labels: np.ndarray | None = None):
+    """All batches for one parameter; coloured by group label when given (-1 in grey)."""
+    p = data.params.index(param)
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for b in range(data.n_batches):
+        label = -1 if labels is None else labels[b]
+        color = "lightgrey" if label < 0 else plt.cm.tab10(label % 10)
+        ax.plot(data.time, data.X[b, p], color=color, linewidth=0.8, alpha=0.7)
+    ax.set_xlabel("time")
+    ax.set_ylabel(param)
+    ax.set_title(f"{param}: all batches" + ("" if labels is None else " (colour = group, grey = none)"))
+    fig.tight_layout()
+    return fig
+
+
+def plot_reference_band(percent: np.ndarray, reference: np.ndarray, band_std: np.ndarray, param: str,
+                        run: np.ndarray | None = None, t_index: int | None = None,
+                        band_k: float = 2.0):
+    """One group's mean +- band_k * std for one parameter, and optionally a run up to t_index.
+
+    percent: x-axis, each time point as % of the batch duration (BatchData.percent).
+    """
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.fill_between(percent, reference - band_k * band_std, reference + band_k * band_std,
+                    color="tab:blue", alpha=0.2, label=f"group band (mean +- {band_k:g} std)")
+    ax.plot(percent, reference, color="tab:blue", label="group mean")
+    if run is not None:
+        t_index = t_index or len(percent)
+        ax.plot(percent[:t_index], run[:t_index], color="black", linewidth=2, label="run so far")
+        ax.axvline(percent[t_index - 1], color="grey", linestyle="--")
+    ax.set_xlim(0, 100)
+    ax.set_xlabel("time into the batch (% of batch end)")
+    ax.set_ylabel(param)
+    ax.legend()
+    fig.tight_layout()
+    return fig
+
+
+def plot_metric_vs_time(summary: pd.DataFrame, metric: str = "auc", title: str = ""):
+    """One line per method: score against % of the batch seen (output of evaluation.summarize).
+
+    Percent instead of hours or days, so all datasets share the same axis (0 = start, 100 = end).
+    """
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for method, rows in summary.groupby("method"):
+        ax.plot(rows["percent"], rows[metric], marker="o", label=method)
+    if metric == "auc":
+        ax.axhline(0.5, color="grey", linestyle=":", label="coin flip")
+        ax.set_ylim(0.2, 1.02)
+    ax.set_xlim(0, 100)
+    ax.set_xlabel("time into the batch (% of batch end)")
+    ax.set_ylabel(metric)
+    ax.set_title(title or f"{metric} vs time into the batch")
+    ax.legend()
+    fig.tight_layout()
+    return fig
+
+
+# ------------------------------------------------------------------ solar views (app)
+def plot_group_references(time: np.ndarray, references: np.ndarray, share_faulty: np.ndarray):
+    """Typical relative-power run of each group, darker red = more faulty runs in the group."""
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for g in np.argsort(share_faulty):
+        ax.plot(time, references[g], linewidth=1.5, color=plt.cm.Reds(0.15 + 0.85 * share_faulty[g]))
+    ax.axhline(1.0, color="grey", linestyle=":", linewidth=1.5)
+    ax.set_xlabel("hour of the day")
+    ax.set_ylabel("relative power")
+    ax.set_title("Typical trajectory of each group (darker red = more faulty runs in the group)")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    return fig
