@@ -6,12 +6,13 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
+
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-notebooks/work*.ipynb
+notebooks/*.ipynb
 
 reports/*.csv
 .DS_Store

@@ -83,3 +83,72 @@ def plot_group_references(time: np.ndarray, references: np.ndarray, share_faulty
     ax.grid(alpha=0.3)
     fig.tight_layout()
     return fig
+
+
+# ------------------------------------------------------------------ online app
+INK, GOOD, LOW, MUTED = "#14213d", "#0f7b6c", "#d9822b", "#9aa3ab"
+METHOD_STYLE = {   # display name -> (colour, line width, line style)
+    "BatchGrouper": (GOOD, 3.0, "-"),
+    "ridge": ("#3d6fb6", 2.0, "-"),
+    "logistic": ("#3d6fb6", 2.0, "-"),
+    "PLS": ("#8e5ea2", 2.0, "-"),
+    "base rate": (MUTED, 1.5, ":"),
+}
+
+
+def clean_axes(ax) -> None:
+    """Light style shared by the app figures: no box, faint grid."""
+    for side in ["top", "right"]:
+        ax.spines[side].set_visible(False)
+    ax.grid(alpha=0.25)
+    ax.tick_params(colors=INK, labelsize=9)
+
+
+def plot_tunnels(percent: np.ndarray, references: np.ndarray, band_std: np.ndarray, group_means: np.ndarray,
+                 low_threshold: float, param: str, highlight: int | None = None,
+                 run: np.ndarray | None = None, t_index: int | None = None, band_k: float = 2.0):
+    """Every tunnel (group mean +- band_k * std) for one parameter.
+
+    Green = the group's mean titer is above the low threshold, orange = below.
+    highlight: the tunnel of the monitored batch, drawn strong; the others are faint.
+    run, t_index: the monitored batch, drawn up to now.
+    """
+    fig, ax = plt.subplots(figsize=(9, 4))
+    for g in range(len(references)):
+        colour = LOW if group_means[g] < low_threshold else GOOD
+        strong = highlight is None or g == highlight
+        ax.fill_between(percent, references[g] - band_k * band_std[g], references[g] + band_k * band_std[g],
+                        color=colour, alpha=0.28 if strong else 0.06, linewidth=0)
+        ax.plot(percent, references[g], color=colour, linewidth=1.8 if strong else 0.8,
+                alpha=1.0 if strong else 0.4)
+    if run is not None:
+        ax.plot(percent[:t_index], run[:t_index], color=INK, linewidth=2.5, label="monitored batch")
+        ax.axvline(percent[t_index - 1], color=INK, linestyle="--", linewidth=1)
+        ax.legend(frameon=False, loc="upper left")
+    ax.set_xlim(0, 100)
+    ax.set_xlabel("time into the batch (%)", color=INK)
+    ax.set_ylabel(param, color=INK)
+    clean_axes(ax)
+    fig.tight_layout()
+    return fig
+
+
+def plot_scores(summary: pd.DataFrame, metric: str, ylabel: str):
+    """One line per method (display names): score against % of the batch seen."""
+    fig, ax = plt.subplots(figsize=(9, 4))
+    for method, rows in summary.groupby("method"):
+        colour, width, style = METHOD_STYLE.get(method, (INK, 2.0, "-"))
+        ax.plot(rows["percent"], rows[metric], color=colour, linewidth=width, linestyle=style,
+                marker="o", markersize=4, label=method)
+    if metric == "auc":
+        ax.axhline(0.5, color=MUTED, linewidth=1)
+        ax.set_ylim(0.2, 1.02)
+    else:
+        ax.set_ylim(-0.02, 1.02)
+    ax.set_xlim(0, 100)
+    ax.set_xlabel("time into the run (%)", color=INK)
+    ax.set_ylabel(ylabel, color=INK)
+    ax.legend(frameon=False, fontsize=9, loc="lower right")
+    clean_axes(ax)
+    fig.tight_layout()
+    return fig

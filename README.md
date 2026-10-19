@@ -54,6 +54,9 @@ python scripts/step2_processdata_solar.py
 python scripts/step3_run_models.py             # all datasets (about 30 s)
 python scripts/step3_run_models.py solar_plant2
 
+# Step 4: data for the online app -> app/data/ (versioned)
+python scripts/step4_export_app_data.py
+
 streamlit run app/streamlit_app.py
 pytest
 ```
