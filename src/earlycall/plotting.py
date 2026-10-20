@@ -152,3 +152,54 @@ def plot_scores(summary: pd.DataFrame, metric: str, ylabel: str):
     clean_axes(ax)
     fig.tight_layout()
     return fig
+
+
+def plot_runs_by_quality(percent: np.ndarray, curves: np.ndarray, quality: np.ndarray, param: str):
+    """Every run for one parameter, coloured by its final quality (dark = high, light = low)."""
+    fig, ax = plt.subplots(figsize=(8, 3.8))
+    known = ~np.isnan(quality)
+    low, high = np.nanmin(quality), np.nanmax(quality)
+    for curve, q in zip(curves[known], quality[known]):
+        ax.plot(percent, curve, color=plt.cm.viridis_r(0.1 + 0.8 * (high - q) / (high - low)), linewidth=1.1, alpha=0.8)
+    scale = plt.cm.ScalarMappable(cmap="viridis", norm=plt.Normalize(low, high))
+    fig.colorbar(scale, ax=ax, pad=0.01).set_label("final titer (g/L)", color=INK)
+    ax.set_xlim(0, 100)
+    ax.set_xlabel("time into the batch (%)", color=INK)
+    ax.set_ylabel(param, color=INK)
+    clean_axes(ax)
+    fig.tight_layout()
+    return fig
+
+
+def plot_quality_distribution(quality: np.ndarray, low_threshold: float):
+    """Histogram of the final quality, with the low threshold."""
+    fig, ax = plt.subplots(figsize=(5, 3.8))
+    quality = quality[~np.isnan(quality)]
+    bins = np.linspace(quality.min(), quality.max(), 16)
+    ax.hist(quality[quality < low_threshold], bins=bins, color=LOW, alpha=0.85, label="low")
+    ax.hist(quality[quality >= low_threshold], bins=bins, color=GOOD, alpha=0.85, label="good")
+    ax.axvline(low_threshold, color=INK, linestyle="--", linewidth=1)
+    ax.set_xlabel("final titer (g/L)", color=INK)
+    ax.set_ylabel("batches", color=INK)
+    ax.legend(frameon=False)
+    clean_axes(ax)
+    fig.tight_layout()
+    return fig
+
+
+def plot_quality_ranges(group_range: np.ndarray, group_mean: np.ndarray, low_threshold: float):
+    """One bar per tunnel: final quality from min to max, dot = mean. Orange = mean below threshold."""
+    n = len(group_mean)
+    fig, ax = plt.subplots(figsize=(5, 0.4 * n + 1.2))
+    for g in range(n):
+        colour = LOW if group_mean[g] < low_threshold else GOOD
+        ax.plot(group_range[g], [g, g], color=colour, linewidth=8, alpha=0.35, solid_capstyle="round")
+        ax.plot(group_mean[g], g, "o", color=colour, markersize=8)
+    ax.axvline(low_threshold, color=INK, linestyle="--", linewidth=1)
+    ax.set_yticks(range(n), [f"tunnel {g + 1}" for g in range(n)])
+    ax.invert_yaxis()
+    ax.set_xlabel("final titer (g/L)", color=INK)
+    clean_axes(ax)
+    ax.grid(axis="y", visible=False)
+    fig.tight_layout()
+    return fig
